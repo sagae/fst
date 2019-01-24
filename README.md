@@ -1,8 +1,7 @@
-# fst
-## Finite-State Transducers
+# fst: Finite-State Transducers
 ### Kenji Sagae
 
-### Usage
+#### Usage
 ```python
 import fst
 
@@ -26,5 +25,11 @@ c = compose(myfst1, myfst2)
 
 # Find the shortest paths 
 cpaths = c.short_paths(10)
-print(cpaths) 
+print(cpaths)
+
+# Save the FST
+c.save('c.fst')
+
+# Load an FST
+newc = fst.load('c.fst')
 
