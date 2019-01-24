@@ -3,6 +3,8 @@
 # Weighted Finite State Transducers, with composition and
 # shortest paths.
 
+import pickle
+
 EPS='<eps>'
 
 class FST(object):
@@ -105,6 +107,13 @@ class FST(object):
     def print_transitions(self):
         for t in self.transitions:
             print(t, self.transitions[t])
+
+    def save(self, fname):
+        pickle.dump(self, open(fname, 'wb'))
+
+def load(fname):
+    f = pickle.load(open(fname, 'rb'))
+    return f
 
 def compose(f, g):
     """
