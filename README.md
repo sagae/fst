@@ -21,7 +21,7 @@ myfst2.set_initial('w0')
 myfst2.set_final('w0')
 
 # Compose the two FSTs
-c = compose(myfst1, myfst2)
+c = fst.compose(myfst1, myfst2)
 
 # Find the shortest paths 
 cpaths = c.short_paths(10)
