@@ -115,6 +115,18 @@ def load(fname):
     f = pickle.load(open(fname, 'rb'))
     return f
 
+def inverted(origf):
+    """
+    Create an inverted FST from another FST.
+    """
+    newf = FST()
+    newf.initial = origf.initial
+    newf.final = origf.final.copy()
+    for t in origf.transitions:
+        newf.add_transition(t[0], t[1], t[3], t[2], origf.transitions[t])
+
+    return newf
+
 def compose(f, g):
     """
     Compose two FSTs, f and g.

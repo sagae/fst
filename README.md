@@ -33,3 +33,7 @@ c.save('c.fst')
 # Load an FST
 newc = fst.load('c.fst')
 
+# Create an inverted FST
+invf = fst.inverted(c)
+
+```
