@@ -155,15 +155,15 @@ def compose(f, g):
         ftrans = f.transitions_by_osym[EPS]
         for t1 in ftrans:
             for st2 in set([s2 for (s1, s2, isym, osym) in g.transitions]):
-                c.add_transitions((t1[0], st2),
+                c.add_transition((t1[0], st2),
                                   (t1[1], st2),
                                   t1[2], EPS, ftrans[t1])
 
     if EPS in g.transitions_by_isym:
         gtrans = g.transitions_by_isym[EPS]
         for t2 in gtrans:
-            for st1 in set([s2 for (s1, s2, isym, osym) in f.transitions]):
-                c.add_transitions((st1, t2[0]),
+            for st1 in set([s1 for (s1, s2, isym, osym) in f.transitions]):
+                c.add_transition((st1, t2[0]),
                                   (st1, t2[1]),
                                   EPS, t2[3], gtrans[t2])
     
