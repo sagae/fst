@@ -98,6 +98,8 @@ class FST(object):
                 ostr = [w[1] for w in curr[2]]
                 while EPS in ostr:
                     ostr.remove(EPS)
+                while EPS in istr:
+                    istr.remove(EPS)
                 paths.append((curr[1], istr, ostr))
             if len(paths) > n:
                 break
@@ -131,6 +133,17 @@ def compose(f, g):
     """
     Compose two FSTs, f and g.
     """
+
+    def getstates(m):
+        states = set()
+        for t in m.transitions:
+            states.add(t[0])
+            states.add(t[1])
+        return states
+
+    fstates = getstates(f)
+    gstates = getstates(g)
+    
     c = FST()
     c.initial = (f.initial, g.initial)
     
@@ -154,7 +167,7 @@ def compose(f, g):
     if EPS in f.transitions_by_osym:
         ftrans = f.transitions_by_osym[EPS]
         for t1 in ftrans:
-            for st2 in set([s2 for (s1, s2, isym, osym) in g.transitions]):
+            for st2 in gstates:
                 c.add_transition((t1[0], st2),
                                   (t1[1], st2),
                                   t1[2], EPS, ftrans[t1])
@@ -162,7 +175,7 @@ def compose(f, g):
     if EPS in g.transitions_by_isym:
         gtrans = g.transitions_by_isym[EPS]
         for t2 in gtrans:
-            for st1 in set([s1 for (s1, s2, isym, osym) in f.transitions]):
+            for st1 in fstates:
                 c.add_transition((st1, t2[0]),
                                   (st1, t2[1]),
                                   EPS, t2[3], gtrans[t2])
