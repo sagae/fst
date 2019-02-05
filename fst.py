@@ -19,6 +19,7 @@ class FST(object):
     def __init__(self):
         self.initial = None
         self.final = set()
+        self.rm = {}
         self.transitions = {}
         self.transitions_by_isym = {}
         self.transitions_by_osym = {}
@@ -78,21 +79,41 @@ class FST(object):
         # Best first search, from the initial state to any of
         # the final states. Won't work with negative weights.
         
-        h = [(self.initial, 0, [])]
+        h = [(self.initial, 0, [], 0, '')]
         paths = []
-
+        chart = {}
+        
         while len(paths) < n and len(h) > 0:
             accepted = False
             while len(h) > 0:
                 h.sort(key=lambda p: p[1])
                 curr = h.pop(0)
+                #print(curr)
                 if curr[0] in self.final:
                     accepted = True
                     break
                 if curr[0] not in self.transitions_by_state:
                     continue
+                if curr[0] in self.rm:
+                    continue
+                to_add = []
                 for transition in self.transitions_by_state[curr[0]]:
-                    h.append((transition[1], curr[1]+self.transitions_by_state[curr[0]][transition], curr[2]+[(transition[2], transition[3])]))
+                    if transition[0] in self.rm or transition[1] in self.rm:
+                        continue
+                    sym_cnt = curr[3]
+                    sym = transition[3]
+                    if sym == EPS:
+                        sym = curr[4]
+                    score = curr[1]+self.transitions_by_state[curr[0]][transition]
+                    if transition[2] != EPS:
+                        sym_cnt += 1
+                    if (sym_cnt, sym) not in chart:
+                        chart[(sym_cnt, sym)] = []
+                    if len(chart[(sym_cnt, sym)]) < n+100 or chart[(sym_cnt, sym)][-1] >= score:
+                        chart[(sym_cnt, sym)].append(score)
+                        chart[(sym_cnt, sym)].sort()
+                        chart[(sym_cnt, sym)] = chart[(sym_cnt, sym)][0:n+100]
+                        h.append((transition[1], curr[1]+self.transitions_by_state[curr[0]][transition], curr[2]+[(transition[2], transition[3])], sym_cnt, sym))
             if accepted:
                 istr = [w[0] for w in curr[2]]
                 ostr = [w[1] for w in curr[2]]
@@ -105,7 +126,7 @@ class FST(object):
                 break
         
         return paths
-    
+
     def print_transitions(self):
         for t in self.transitions:
             print(t, self.transitions[t])
@@ -129,20 +150,29 @@ def inverted(origf):
 
     return newf
 
-def compose(f, g):
+def compose(f, g, prune=False):
     """
     Compose two FSTs, f and g.
     """
 
-    def getstates(m):
+    def get_states(m):
         states = set()
+        from_states = set()
+        to_states = set()
         for t in m.transitions:
-            states.add(t[0])
-            states.add(t[1])
-        return states
+            if t[0] in m.rm or t[1] in m.rm:
+                continue
+            from_states.add(t[0])
+            to_states.add(t[1])
+        return from_states, to_states
 
-    fstates = getstates(f)
-    gstates = getstates(g)
+    def remove_state(c, st):
+        c.rm[st] = True
+                    
+    frst, tost = get_states(f)
+    fstates = frst.union(tost)
+    frst, tost = get_states(g)
+    gstates = frst.union(tost)
     
     c = FST()
     c.initial = (f.initial, g.initial)
@@ -158,7 +188,11 @@ def compose(f, g):
         if osym in g.transitions_by_isym:
             gtrans = g.transitions_by_isym[osym]
             for t1 in ftrans:
+                if t1[0] in f.rm or t1[1] in f.rm:
+                    continue
                 for t2 in gtrans:
+                    if t2[0] in g.rm or t2[1] in g.rm:
+                        continue
                     c.add_transition((t1[0], t2[0]),
                                      (t1[1], t2[1]),
                                      t1[2], t2[3],
@@ -167,7 +201,11 @@ def compose(f, g):
     if EPS in f.transitions_by_osym:
         ftrans = f.transitions_by_osym[EPS]
         for t1 in ftrans:
+            if t1[0] in f.rm or t1[1] in f.rm:
+                    continue
             for st2 in gstates:
+                if st2 in g.rm:
+                    continue
                 c.add_transition((t1[0], st2),
                                   (t1[1], st2),
                                   t1[2], EPS, ftrans[t1])
@@ -175,11 +213,56 @@ def compose(f, g):
     if EPS in g.transitions_by_isym:
         gtrans = g.transitions_by_isym[EPS]
         for t2 in gtrans:
+            if t2[0] in g.rm or t2[1] in g.rm:
+                continue
             for st1 in fstates:
+                if st1 in f.rm:
+                    continue
                 c.add_transition((st1, t2[0]),
                                   (st1, t2[1]),
                                   EPS, t2[3], gtrans[t2])
+
+    if not prune:
+        return c
     
+    print("rm sink")
+    # remove sink states
+
+    removed = {}
+    while True:
+        sink = False
+        frst, tost = get_states(c)
+        for st in tost:
+            if st in c.final:
+                continue
+            if st not in frst and st not in removed:
+                #print("removed to state:", st)
+                remove_state(c, st)
+                removed[st] = True
+                sink = True
+        if not sink:
+            break
+    print("done")
+    
+    print("rm unreachable")
+    # remove unreachable states
+    frst, tost = get_states(c)
+    print('got states')
+    removed = {}
+    while True:
+        unreachable = False
+        for st in frst:
+            if st == c.initial:
+                continue
+            if st not in tost and st not in removed:
+                # print("removed from state:", st)
+                remove_state(c, st)
+                removed[st] = True
+                unreachable = True
+        if not unreachable:
+            break
+    print('Done')
+                
     return c
 
 def linear_chain(syms):
