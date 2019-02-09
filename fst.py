@@ -15,7 +15,16 @@ class FST(object):
     isym and output symbol osym is a tuple
     (state1, state2, isym, osym). Transitions are additionally
     indexed by state1, isym and osym.
-    """    
+    """
+
+    class Transition(object):
+        def __init__(self, from_st, to_st, isym, osym, w):
+            self.from_state = from_st
+            self.to_state = to_st
+            self.isym = isym
+            self.osym = osym
+            self.w = w
+            
     def __init__(self):
         self.initial = None
         self.final = set()
@@ -50,6 +59,16 @@ class FST(object):
         self.transitions_by_isym[isym][(state1, state2, isym, osym)] += weight
         self.transitions_by_osym[osym][(state1, state2, isym, osym)] += weight
 
+    def rm_transition(self, t):
+        """
+        Removes a transition from the FST.
+        """
+        if t in self.transitions:
+            del self.transitions[t]
+            del self.transitions_by_isym[t[2]][t]
+            del self.transitions_by_osym[t[3]][t]
+            del self.transitions_by_state[t[0]][t]
+            
     def set_initial(self, s):
         """
         Set the initial state. There is only one initial state.
@@ -127,7 +146,26 @@ class FST(object):
         
         return paths
 
+    def rm_epseps(self):
+        """
+        Remove eps:eps transitions.
+        TO DO: complete removal. Only some eps:eps are removed currently.
+        """
+        orig_transitions = self.transitions.copy()
+        to_delete = set() 
+        for t in orig_transitions:
+            if t[2] == EPS and t[3] == EPS:
+                to_delete.add(t)
+                for t2 in orig_transitions:
+                    if t2[1] == t[0]:
+                        self.add_transition(t2[0], t[1], t2[2], t2[3])
+                        to_delete.add(t2)
+        for t in to_delete:
+            self.rm_transition(t)
+
     def print_transitions(self):
+        print(self.initial)
+        print(self.final)
         for t in self.transitions:
             print(t, self.transitions[t])
 
@@ -222,8 +260,8 @@ def compose(f, g, prune=False):
                                   (st1, t2[1]),
                                   EPS, t2[3], gtrans[t2])
 
-    if not prune:
-        return c
+    #if not prune:
+    #    return c
     
     print("rm sink")
     # remove sink states
@@ -246,23 +284,33 @@ def compose(f, g, prune=False):
     
     print("rm unreachable")
     # remove unreachable states
-    frst, tost = get_states(c)
-    print('got states')
+    # print('got states')
     removed = {}
     while True:
         unreachable = False
+        frst, tost = get_states(c)
         for st in frst:
             if st == c.initial:
                 continue
             if st not in tost and st not in removed:
-                # print("removed from state:", st)
+                #print("removed from state:", st)
                 remove_state(c, st)
                 removed[st] = True
                 unreachable = True
         if not unreachable:
             break
     print('Done')
-                
+
+    for t in c.transitions.copy():
+        if t[0] in c.rm or t[1] in c.rm:
+            c.rm_transition(t)
+
+    frst, tost = get_states(c)
+    for s in c.transitions_by_state.copy():
+        if s not in frst and s not in tost:
+            del c.transitions_by_state[s]  
+
+    print(len(c.transitions), len(c.transitions_by_state))
     return c
 
 def linear_chain(syms):
