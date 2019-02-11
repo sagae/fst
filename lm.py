@@ -25,7 +25,7 @@ with open(sys.argv[1], 'r', encoding='utf-8') as fp:
         sent = line.split() + ['</s>']
         while '.' in sent:
             sent.remove('.')
-        for token in line.split() + ['</s>']:
+        for token in sent:
             w_cnt += 1
             if token in w_unigram_cnt:
                 w_unigram_cnt[token] += 1
@@ -35,16 +35,15 @@ with open(sys.argv[1], 'r', encoding='utf-8') as fp:
                 w_bigram_cnt[(token, prev)] += 1
             else:
                 w_bigram_cnt[(token, prev)] = 1
-            prev = token
+            prev = token        
 
 if vocabsize > 0:
     unk_cnt = 0
     types = sorted(w_unigram_cnt.items(), key=lambda a: a[1], reverse=True)
     for word, cnt in types[vocabsize:]:
         unk_cnt += cnt
-
-w_unigram_cnt = dict(types[:vocabsize])
-w_unigram_cnt['<unk>'] = unk_cnt
+    w_unigram_cnt = dict(types[:vocabsize])
+    w_unigram_cnt['<unk>'] = unk_cnt
 
 for (word, prev), cnt in list(w_bigram_cnt.items()):
     rm = False
@@ -84,7 +83,10 @@ for w in w_unigram_cnt:
     unigram_p = w_unigram_cnt[w]/w_cnt
     logp = -1 * math.log(unigram_p)
     wlm.add_transition(w, '<unigram_state>', fst.EPS, fst.EPS, 0)
-    wlm.add_transition('<unigram_state>', w, w, w, logp)
+    if not w == '</s>':
+        wlm.add_transition('<unigram_state>', w, w, w, logp)
+    else:
+        wlm.add_transition('<unigram_state>', w, fst.EPS, fst.EPS, logp)
     
 print("Done")
 

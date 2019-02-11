@@ -4,6 +4,7 @@
 # shortest paths.
 
 import pickle
+from collections import defaultdict
 
 EPS='<eps>'
 
@@ -17,47 +18,32 @@ class FST(object):
     indexed by state1, isym and osym.
     """
 
-    class Transition(object):
-        def __init__(self, from_st, to_st, isym, osym, w):
-            self.from_state = from_st
-            self.to_state = to_st
-            self.isym = isym
-            self.osym = osym
-            self.w = w
-            
     def __init__(self):
         self.initial = None
         self.final = set()
-        self.rm = {}
-        self.transitions = {}
-        self.transitions_by_isym = {}
-        self.transitions_by_osym = {}
-        self.transitions_by_state = {}
+        self.sigma = set()
+        self.gamma = set()
+        self.states = set()
+        self.from_states = defaultdict(int)
+        self.to_states = defaultdict(int)
+        self.transitions = defaultdict(float)
+        self.transitions_by_isym = defaultdict(set)
+        self.transitions_by_osym = defaultdict(set)
+        self.transitions_by_state = defaultdict(set)
         
     def add_transition(self, state1, state2, isym, osym, weight=0):
         """
         Add a transition to the FST. If the transition already
         exists, add weight to the existing weight.
         """
-        if (state1, state2, isym, osym) not in self.transitions:
-            self.transitions[(state1, state2, isym, osym)] = 0
+        self.states.add(state1)
+        self.states.add(state2)
+        self.from_states[state1] += 1
+        self.to_states[state2] += 1
         self.transitions[(state1, state2, isym, osym)] += weight
-        if state1 not in self.transitions_by_state:
-            self.transitions_by_state[state1] = {}
-        if isym not in self.transitions_by_isym:
-            self.transitions_by_isym[isym] = {}
-        if osym not in self.transitions_by_osym:
-            self.transitions_by_osym[osym] = {}
-        if (state1, state2, isym, osym) not in self.transitions_by_state[state1]:
-            self.transitions_by_state[state1][(state1, state2, isym, osym)] = 0
-        if (state1, state2, isym, osym) not in self.transitions_by_isym[isym]:
-            self.transitions_by_isym[isym][(state1, state2, isym, osym)] = 0
-        if (state1, state2, isym, osym) not in self.transitions_by_osym[osym]:
-            self.transitions_by_osym[osym][(state1, state2, isym, osym)] = 0
-            
-        self.transitions_by_state[state1][(state1, state2, isym, osym)] += weight
-        self.transitions_by_isym[isym][(state1, state2, isym, osym)] += weight
-        self.transitions_by_osym[osym][(state1, state2, isym, osym)] += weight
+        self.transitions_by_state[state1].add((state1, state2, isym, osym))
+        self.transitions_by_isym[isym].add((state1, state2, isym, osym))
+        self.transitions_by_osym[osym].add((state1, state2, isym, osym))
 
     def rm_transition(self, t):
         """
@@ -65,9 +51,35 @@ class FST(object):
         """
         if t in self.transitions:
             del self.transitions[t]
-            del self.transitions_by_isym[t[2]][t]
-            del self.transitions_by_osym[t[3]][t]
-            del self.transitions_by_state[t[0]][t]
+            self.transitions_by_isym[t[2]].remove(t)
+            self.transitions_by_osym[t[3]].remove(t)
+            self.transitions_by_state[t[0]].remove(t)
+            self.from_states[t[0]] -= 1
+            self.to_states[t[1]] -= 1
+
+    def cleanup(self):
+        """
+        Remove unused states and transitions.
+        """
+        states_to_remove = []
+        while True:
+            transitions_to_remove = set()
+            for t in self.transitions:
+                if self.to_states[t[0]] == 0 and t[0] != self.initial:
+                    transitions_to_remove.add(t)
+                if self.from_states[t[1]] == 0 and t[1] not in self.final:
+                    transitions_to_remove.add(t)
+            for t in transitions_to_remove:
+                self.rm_transition(t)
+            if len(transitions_to_remove) == 0:
+                break
+        for s in self.states:
+            if self.from_states[s] == 0 and self.to_states[s] == 0:
+                states_to_remove.append(s)
+        for s in states_to_remove:
+            self.states.remove(s)
+            del self.from_states[s]
+            del self.to_states[s]
             
     def set_initial(self, s):
         """
@@ -85,7 +97,7 @@ class FST(object):
         if s in self.final:
             self.final.remove(s)
 
-    def short_paths(self, n=1):
+    def short_paths(self, n=1, beam=0):
         """
         Find n shortest paths. 
         Won't work with negative weights.
@@ -113,26 +125,22 @@ class FST(object):
                     break
                 if curr[0] not in self.transitions_by_state:
                     continue
-                if curr[0] in self.rm:
-                    continue
                 to_add = []
                 for transition in self.transitions_by_state[curr[0]]:
-                    if transition[0] in self.rm or transition[1] in self.rm:
-                        continue
                     sym_cnt = curr[3]
                     sym = transition[3]
                     if sym == EPS:
                         sym = curr[4]
-                    score = curr[1]+self.transitions_by_state[curr[0]][transition]
+                    score = curr[1]+self.transitions[transition]
                     if transition[2] != EPS:
                         sym_cnt += 1
                     if (sym_cnt, sym) not in chart:
                         chart[(sym_cnt, sym)] = []
-                    if len(chart[(sym_cnt, sym)]) < n+100 or chart[(sym_cnt, sym)][-1] >= score:
+                    if len(chart[(sym_cnt, sym)]) < n+beam or chart[(sym_cnt, sym)][-1] >= score:
                         chart[(sym_cnt, sym)].append(score)
                         chart[(sym_cnt, sym)].sort()
-                        chart[(sym_cnt, sym)] = chart[(sym_cnt, sym)][0:n+100]
-                        h.append((transition[1], curr[1]+self.transitions_by_state[curr[0]][transition], curr[2]+[(transition[2], transition[3])], sym_cnt, sym))
+                        chart[(sym_cnt, sym)] = chart[(sym_cnt, sym)][0:n+beam]
+                        h.append((transition[1], curr[1]+self.transitions[transition], curr[2]+[(transition[2], transition[3])], sym_cnt, sym))
             if accepted:
                 istr = [w[0] for w in curr[2]]
                 ostr = [w[1] for w in curr[2]]
@@ -145,23 +153,6 @@ class FST(object):
                 break
         
         return paths
-
-    def rm_epseps(self):
-        """
-        Remove eps:eps transitions.
-        TO DO: complete removal. Only some eps:eps are removed currently.
-        """
-        orig_transitions = self.transitions.copy()
-        to_delete = set() 
-        for t in orig_transitions:
-            if t[2] == EPS and t[3] == EPS:
-                to_delete.add(t)
-                for t2 in orig_transitions:
-                    if t2[1] == t[0]:
-                        self.add_transition(t2[0], t[1], t2[2], t2[3])
-                        to_delete.add(t2)
-        for t in to_delete:
-            self.rm_transition(t)
 
     def print_transitions(self):
         print(self.initial)
@@ -188,30 +179,11 @@ def inverted(origf):
 
     return newf
 
-def compose(f, g, prune=False):
+def compose(f, g, prune=True):
     """
     Compose two FSTs, f and g.
     """
-
-    def get_states(m):
-        states = set()
-        from_states = set()
-        to_states = set()
-        for t in m.transitions:
-            if t[0] in m.rm or t[1] in m.rm:
-                continue
-            from_states.add(t[0])
-            to_states.add(t[1])
-        return from_states, to_states
-
-    def remove_state(c, st):
-        c.rm[st] = True
                     
-    frst, tost = get_states(f)
-    fstates = frst.union(tost)
-    frst, tost = get_states(g)
-    gstates = frst.union(tost)
-    
     c = FST()
     c.initial = (f.initial, g.initial)
     
@@ -226,91 +198,31 @@ def compose(f, g, prune=False):
         if osym in g.transitions_by_isym:
             gtrans = g.transitions_by_isym[osym]
             for t1 in ftrans:
-                if t1[0] in f.rm or t1[1] in f.rm:
-                    continue
                 for t2 in gtrans:
-                    if t2[0] in g.rm or t2[1] in g.rm:
-                        continue
                     c.add_transition((t1[0], t2[0]),
                                      (t1[1], t2[1]),
                                      t1[2], t2[3],
-                                     ftrans[t1] + gtrans[t2])
+                                     f.transitions[t1] + g.transitions[t2])
 
     if EPS in f.transitions_by_osym:
         ftrans = f.transitions_by_osym[EPS]
         for t1 in ftrans:
-            if t1[0] in f.rm or t1[1] in f.rm:
-                    continue
-            for st2 in gstates:
-                if st2 in g.rm:
-                    continue
+            for st2 in g.from_states:
                 c.add_transition((t1[0], st2),
                                   (t1[1], st2),
-                                  t1[2], EPS, ftrans[t1])
+                                  t1[2], EPS, f.transitions[t1])
 
     if EPS in g.transitions_by_isym:
         gtrans = g.transitions_by_isym[EPS]
         for t2 in gtrans:
-            if t2[0] in g.rm or t2[1] in g.rm:
-                continue
-            for st1 in fstates:
-                if st1 in f.rm:
-                    continue
+            for st1 in f.to_states:
                 c.add_transition((st1, t2[0]),
                                   (st1, t2[1]),
-                                  EPS, t2[3], gtrans[t2])
+                                  EPS, t2[3], g.transitions[t2])
 
-    #if not prune:
-    #    return c
-    
-    print("rm sink")
-    # remove sink states
+    if prune:
+        c.cleanup()
 
-    removed = {}
-    while True:
-        sink = False
-        frst, tost = get_states(c)
-        for st in tost:
-            if st in c.final:
-                continue
-            if st not in frst and st not in removed:
-                #print("removed to state:", st)
-                remove_state(c, st)
-                removed[st] = True
-                sink = True
-        if not sink:
-            break
-    print("done")
-    
-    print("rm unreachable")
-    # remove unreachable states
-    # print('got states')
-    removed = {}
-    while True:
-        unreachable = False
-        frst, tost = get_states(c)
-        for st in frst:
-            if st == c.initial:
-                continue
-            if st not in tost and st not in removed:
-                #print("removed from state:", st)
-                remove_state(c, st)
-                removed[st] = True
-                unreachable = True
-        if not unreachable:
-            break
-    print('Done')
-
-    for t in c.transitions.copy():
-        if t[0] in c.rm or t[1] in c.rm:
-            c.rm_transition(t)
-
-    frst, tost = get_states(c)
-    for s in c.transitions_by_state.copy():
-        if s not in frst and s not in tost:
-            del c.transitions_by_state[s]  
-
-    print(len(c.transitions), len(c.transitions_by_state))
     return c
 
 def linear_chain(syms):
