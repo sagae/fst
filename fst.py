@@ -97,7 +97,7 @@ class FST(object):
         if s in self.final:
             self.final.remove(s)
 
-    def short_paths(self, n=1, beam=0):
+    def short_paths(self, n=1, beam=100, dups=False):
         """
         Find n shortest paths. 
         Won't work with negative weights.
@@ -148,7 +148,8 @@ class FST(object):
                     ostr.remove(EPS)
                 while EPS in istr:
                     istr.remove(EPS)
-                paths.append((curr[1], istr, ostr))
+                if dups or len(paths) == 0 or not(istr == paths[-1][1] and ostr == paths[-1][2]):
+                    paths.append((curr[1], istr, ostr))
             if len(paths) > n:
                 break
         

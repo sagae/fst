@@ -15,11 +15,16 @@ else:
 w_bigram_cnt = {}
 w_unigram_cnt = {'<s>': 0}
 wb_lambda = {}
+wb_ctx = {'</s>': {}}
 w_cnt = 0
 
 print("Building LM...")
+line_cnt = 0
 with open(sys.argv[1], 'r', encoding='utf-8') as fp:
     for line in fp:
+        line_cnt += 1
+        if line_cnt % 1000 == 0:
+            print(line_cnt, '...', end=' ', flush=True)
         prev = '<s>'
         w_unigram_cnt[prev] += 1
         sent = line.split() + ['</s>']
@@ -35,7 +40,9 @@ with open(sys.argv[1], 'r', encoding='utf-8') as fp:
                 w_bigram_cnt[(token, prev)] += 1
             else:
                 w_bigram_cnt[(token, prev)] = 1
-            prev = token        
+            prev = token  
+
+print("\nFinished reading file.")      
 
 if vocabsize > 0:
     unk_cnt = 0
@@ -44,6 +51,8 @@ if vocabsize > 0:
         unk_cnt += cnt
     w_unigram_cnt = dict(types[:vocabsize])
     w_unigram_cnt['<unk>'] = unk_cnt
+
+print("Finished <unk> processing.")
 
 for (word, prev), cnt in list(w_bigram_cnt.items()):
     rm = False
@@ -60,10 +69,17 @@ for (word, prev), cnt in list(w_bigram_cnt.items()):
     if rm:
         del w_bigram_cnt[(word, prev)]
     w_bigram_cnt[(newword, newprev)] += cnt
+    if newprev not in wb_ctx:
+        wb_ctx[newprev] = set()
+    wb_ctx[newprev].add(newword)
+
+print("Finished estimating bigram parameters.")
 
 for word in w_unigram_cnt:
-    b = [nw for (nw, w) in w_bigram_cnt if w == word]
-    wb_lambda[word] = len(b)/(len(b)+w_unigram_cnt[word])
+    b = len(wb_ctx[word])
+    wb_lambda[word] = b/(b+w_unigram_cnt[word])
+
+print("Finished estimating unigram parameters.")
 
 wlm = fst.FST()
 wlm.set_initial('<s>')
