@@ -110,7 +110,7 @@ class FST(object):
         # Best first search, from the initial state to any of
         # the final states. Won't work with negative weights.
         
-        h = [(self.initial, 0, [], 0, '')]
+        h = [(self.initial, 0, [])]
         paths = []
         chart = {}
         
@@ -127,20 +127,15 @@ class FST(object):
                     continue
                 to_add = []
                 for transition in self.transitions_by_state[curr[0]]:
-                    sym_cnt = curr[3]
-                    sym = transition[3]
-                    if sym == EPS:
-                        sym = curr[4]
+                    tost = transition[1]
                     score = curr[1]+self.transitions[transition]
-                    if transition[2] != EPS:
-                        sym_cnt += 1
-                    if (sym_cnt, sym) not in chart:
-                        chart[(sym_cnt, sym)] = []
-                    if len(chart[(sym_cnt, sym)]) < n+beam or chart[(sym_cnt, sym)][-1] >= score:
-                        chart[(sym_cnt, sym)].append(score)
-                        chart[(sym_cnt, sym)].sort()
-                        chart[(sym_cnt, sym)] = chart[(sym_cnt, sym)][0:n+beam]
-                        h.append((transition[1], curr[1]+self.transitions[transition], curr[2]+[(transition[2], transition[3])], sym_cnt, sym))
+                    if tost not in chart:
+                        chart[tost] = []
+                    if len(chart[tost]) < n+beam or chart[tost][-1] >= score:
+                        chart[tost].append(score)
+                        chart[tost].sort()
+                        chart[tost] = chart[tost][0:n+beam]
+                        h.append((transition[1], curr[1]+self.transitions[transition], curr[2]+[(transition[2], transition[3])]))
             if accepted:
                 istr = [w[0] for w in curr[2]]
                 ostr = [w[1] for w in curr[2]]
