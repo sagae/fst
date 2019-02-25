@@ -4,6 +4,7 @@
 # shortest paths.
 
 import pickle
+import heapq
 from collections import defaultdict
 
 EPS='<eps>'
@@ -97,7 +98,7 @@ class FST(object):
         if s in self.final:
             self.final.remove(s)
 
-    def short_paths(self, n=1, beam=100, dups=False):
+    def short_paths(self, n=1, dups=False):
         """
         Find n shortest paths. 
         Won't work with negative weights.
@@ -110,32 +111,31 @@ class FST(object):
         # Best first search, from the initial state to any of
         # the final states. Won't work with negative weights.
         
-        h = [(self.initial, 0, [])]
+        h = []
+        heapq.heappush(h, (0, self.initial, []))
         paths = []
         chart = {}
         
         while len(paths) < n and len(h) > 0:
             accepted = False
             while len(h) > 0:
-                h.sort(key=lambda p: p[1])
-                curr = h.pop(0)
+                curr = heapq.heappop(h)
                 #print(curr)
-                if curr[0] in self.final:
+                if curr[1] in self.final:
                     accepted = True
                     break
-                if curr[0] not in self.transitions_by_state:
+                if curr[1] not in self.transitions_by_state:
                     continue
-                to_add = []
-                for transition in self.transitions_by_state[curr[0]]:
+                for transition in self.transitions_by_state[curr[1]]:
                     tost = transition[1]
-                    score = curr[1]+self.transitions[transition]
+                    score = curr[0]+self.transitions[transition]
                     if tost not in chart:
                         chart[tost] = []
-                    if len(chart[tost]) < n+beam or chart[tost][-1] >= score:
-                        chart[tost].append(score)
-                        chart[tost].sort()
-                        chart[tost] = chart[tost][0:n+beam]
-                        h.append((transition[1], curr[1]+self.transitions[transition], curr[2]+[(transition[2], transition[3])]))
+                    item = (score, transition[1], curr[2]+[(transition[2], transition[3])])
+                    heapq.heappush(chart[tost], (item))
+                    if item == chart[tost][0]:
+                        heapq.heappush(h, item)
+
             if accepted:
                 istr = [w[0] for w in curr[2]]
                 ostr = [w[1] for w in curr[2]]
@@ -144,7 +144,13 @@ class FST(object):
                 while EPS in istr:
                     istr.remove(EPS)
                 if dups or len(paths) == 0 or not(istr == paths[-1][1] and ostr == paths[-1][2]):
-                    paths.append((curr[1], istr, ostr))
+                    paths.append((curr[0], istr, ostr))
+                for tost in chart:
+                    if len(chart[tost]) > 0:
+                        heapq.heappop(chart[tost])
+                        if len(chart[tost]) > 0:
+                            heapq.heappush(h, chart[tost][0])
+
             if len(paths) > n:
                 break
         
