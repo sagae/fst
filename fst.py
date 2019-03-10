@@ -112,14 +112,16 @@ class FST(object):
         # the final states. Won't work with negative weights.
         
         h = []
-        heapq.heappush(h, (0, self.initial, []))
+        itemcnt = 0
+        heapq.heappush(h, (0, itemcnt, self.initial, []))
         paths = []
         chart = {}
         
         while len(paths) < n and len(h) > 0:
             accepted = False
             while len(h) > 0:
-                curr = heapq.heappop(h)
+                curr1 = heapq.heappop(h)
+                curr = (curr1[0], curr1[2], curr1[3])
                 #print(curr)
                 if curr[1] in self.final:
                     accepted = True
@@ -131,7 +133,8 @@ class FST(object):
                     score = curr[0]+self.transitions[transition]
                     if tost not in chart:
                         chart[tost] = []
-                    item = (score, transition[1], curr[2]+[(transition[2], transition[3])])
+                    item = (score, itemcnt, transition[1], curr[2]+[(transition[2], transition[3])])
+                    itemcnt += 1
                     heapq.heappush(chart[tost], (item))
                     if item == chart[tost][0]:
                         heapq.heappush(h, item)
