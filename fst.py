@@ -184,49 +184,48 @@ def inverted(origf):
 
     return newf
 
-def compose(f, g, prune=True):
+def compose(f, g):
     """
     Compose two FSTs, f and g.
     """
                     
     c = FST()
+    c.states.add((f.initial, g.initial))
     c.initial = (f.initial, g.initial)
-    
+    a = [(f.initial, g.initial)]
+
+    while len(a) > 0:
+        (q1, q2) = a.pop(0)
+        
+        for t2 in g.transitions_by_state[q2]:
+            if t2[2] == EPS and ((q1, t2[0]),
+                                (q1, t2[1]),
+                                EPS,
+                                t2[3]) not in c.transitions:
+                c.add_transition((q1, t2[0]),
+                                (q1, t2[1]),
+                                EPS,
+                                t2[3],
+                                g.transitions[t2])
+                a.append((q1, t2[1]))
+
+        for t1 in f.transitions_by_state[q1]:
+            for t2 in g.transitions_by_state[q2]:
+                if t2[2] == t1[3] and ((t1[0], t2[0]), 
+                                    (t1[1], t2[1]), 
+                                    t1[2], 
+                                    t2[3]) not in c.transitions:
+                    c.add_transition((t1[0], t2[0]), 
+                                    (t1[1], t2[1]), 
+                                    t1[2], 
+                                    t2[3],
+                                    f.transitions[t1] + g.transitions[t2])
+                    a.append((t1[1], t2[1]))
+
     for ff in f.final:
         for gf in g.final:
-            c.set_final((ff, gf))
-    
-    for osym in f.transitions_by_osym:
-        if osym == EPS:
-            continue
-        ftrans = f.transitions_by_osym[osym]
-        if osym in g.transitions_by_isym:
-            gtrans = g.transitions_by_isym[osym]
-            for t1 in ftrans:
-                for t2 in gtrans:
-                    c.add_transition((t1[0], t2[0]),
-                                     (t1[1], t2[1]),
-                                     t1[2], t2[3],
-                                     f.transitions[t1] + g.transitions[t2])
-
-    if EPS in f.transitions_by_osym:
-        ftrans = f.transitions_by_osym[EPS]
-        for t1 in ftrans:
-            for st2 in g.from_states:
-                c.add_transition((t1[0], st2),
-                                  (t1[1], st2),
-                                  t1[2], EPS, f.transitions[t1])
-
-    if EPS in g.transitions_by_isym:
-        gtrans = g.transitions_by_isym[EPS]
-        for t2 in gtrans:
-            for st1 in f.to_states:
-                c.add_transition((st1, t2[0]),
-                                  (st1, t2[1]),
-                                  EPS, t2[3], g.transitions[t2])
-
-    if prune:
-        c.cleanup()
+            if (ff, gf) in c.states:
+                c.set_final((ff, gf))
 
     return c
 

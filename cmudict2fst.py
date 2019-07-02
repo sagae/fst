@@ -23,11 +23,12 @@ w2p_state_id = 2
 
 # get the vocabulary
 fd = {}
-with open(sys.argv[1], 'r', encoding='utf-8') as fp:
-    for line in fp:
-        toks = line.split()
-        if int(toks[0]) > 1:
-            fd[toks[1]] = int(toks[0])
+if sys.argv[1] != '-':
+    with open(sys.argv[1], 'r', encoding='utf-8') as fp:
+        for line in fp:
+            toks = line.split()
+            if int(toks[0]) > 1:
+                fd[toks[1]] = int(toks[0])
 
 # go through each entry in the CMU Pronunciation Dictionary
 with open('cmudict.0.7a_SPHINX_40', 'r', encoding='utf-8') as fp:
@@ -38,7 +39,7 @@ with open('cmudict.0.7a_SPHINX_40', 'r', encoding='utf-8') as fp:
             toks = line.split()
             word = re.sub('\([0-9]+\)$', '', toks.pop(0))
 
-            if word not in fd:
+            if len(fd) > 0 and word not in fd:
                 continue
 
             toks2 = toks.copy()
