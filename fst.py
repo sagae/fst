@@ -227,6 +227,8 @@ def compose(f, g):
             if (ff, gf) in c.states:
                 c.set_final((ff, gf))
 
+    c.cleanup()
+    
     return c
 
 def linear_chain(syms):
