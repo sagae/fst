@@ -39,8 +39,9 @@ class FST(object):
         """
         self.states.add(state1)
         self.states.add(state2)
-        self.from_states[state1] += 1
-        self.to_states[state2] += 1
+        if not (state1, state2, isym, osym) in self.transitions:
+            self.from_states[state1] += 1
+            self.to_states[state2] += 1
         self.transitions[(state1, state2, isym, osym)] += weight
         self.transitions_by_state[state1].add((state1, state2, isym, osym))
         self.transitions_by_isym[isym].add((state1, state2, isym, osym))
