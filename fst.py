@@ -5,7 +5,7 @@
 
 import pickle
 import heapq
-from collections import defaultdict
+from collections import defaultdict, deque
 
 EPS='<eps>'
 
@@ -193,10 +193,10 @@ def compose(f, g):
     c = FST()
     c.states.add((f.initial, g.initial))
     c.initial = (f.initial, g.initial)
-    a = [(f.initial, g.initial)]
+    a = deque([(f.initial, g.initial)])
 
     while len(a) > 0:
-        (q1, q2) = a.pop(0)
+        (q1, q2) = a.popleft()
         
         for t2 in g.transitions_by_state[q2]:
             if t2[2] == EPS and ((q1, t2[0]),
