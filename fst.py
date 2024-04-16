@@ -165,7 +165,44 @@ class FST(object):
         print(self.final)
         for t in self.transitions:
             print(t, self.transitions[t])
+    
+    def transduce(self, input_symbols, n=100, sep='', tostring=False, verbose=1, fstoutput=False):
+        """
+        Runs an input string (list of symbols) through the FST.
+        Optionally return a new FST that encodes the output strings,
+        or just print the output strings to the console.
+        """
+        
+        in_fst = linear_chain(input_symbols)
+        c = compose(in_fst, self)
+        sp = c.short_paths(n)
+        if verbose > 0:
+            if sp == None:
+                print('Fail: input string not in the language')
+                return
+            print("Printing at most", n, "input/output pairs.")
+            print()
+            for i, p in enumerate(sp):
+                print('Path #:', i+1)
+                if not tostring:
+                    print('Input: ', input_symbols)
+                    print('Output:', p[2])
+                else:
+                    print('Input: ', sep.join(input_symbols))
+                    print('Output:', sep.join(p[2]))
+                print('Weight:', p[0])
+                print()
+        if fstoutput:
+            return c
+        return
 
+    def transduce_string(self, input_string, sep='', n=100, verbose=1, fstoutput=False):
+        if sep == '':
+            toks = list(input_string)
+        else:
+            toks = input_string.split(sep=sep)
+        self.transduce(toks, n, sep=sep, tostring=True, verbose=verbose, fstoutput=fstoutput)
+ 
     def save(self, fname):
         pickle.dump(self, open(fname, 'wb'))
 
