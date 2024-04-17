@@ -180,16 +180,17 @@ class FST(object):
             if sp == None:
                 print('Fail: input string not in the language')
                 return
-            print("Printing at most", n, "input/output pairs.")
+            print("Printing at most", n, "output strings.")
+            if not tostring:
+                print('Input: ', input_symbols)
+            else:
+                print("Input: ", sep.join(input_symbols))
             print()
             for i, p in enumerate(sp):
-                print('Path #:', i+1)
                 if not tostring:
-                    print('Input: ', input_symbols)
-                    print('Output:', p[2])
+                    print('Output %d:' % (i + 1), p[2])
                 else:
-                    print('Input: ', sep.join(input_symbols))
-                    print('Output:', sep.join(p[2]))
+                    print('Output %d:' % (i + 1), sep.join(p[2]))
                 print('Weight:', p[0])
                 print()
         if fstoutput:
