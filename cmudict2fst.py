@@ -31,11 +31,11 @@ if sys.argv[1] != '-':
                 fd[toks[1]] = int(toks[0])
 
 # go through each entry in the CMU Pronunciation Dictionary
-with open('cmudict.0.7a_SPHINX_40', 'r', encoding='utf-8') as fp:
+with open('cmudict.0.7a_SPHINX_40.txt', 'r', encoding='utf-8') as fp:
     for line in fp:
 
-        line = line.lower()
-        if re.match('^[a-z]', line):
+        # line = line.lower()
+        if re.match('^[A-Z]', line):
             toks = line.split()
             word = re.sub('\([0-9]+\)$', '', toks.pop(0))
 
