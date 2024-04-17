@@ -166,7 +166,7 @@ class FST(object):
         for t in self.transitions:
             print(t, self.transitions[t])
     
-    def transduce(self, input_symbols, n=100, sep=' ', tostring=False, verbose=1, fstoutput=False):
+    def transduce(self, input_symbols, n=300, sep=' ', tostring=False, verbose=1, fstoutput=False):
         """
         Runs an input string (list of symbols) through the FST.
         Optionally return a new FST that encodes the output strings,
@@ -197,7 +197,7 @@ class FST(object):
             return c
         return
 
-    def transduce_string(self, input_string, sep=' ', n=100, verbose=1, fstoutput=False):
+    def transduce_string(self, input_string, sep=' ', n=300, verbose=1, fstoutput=False):
         if sep == '':
             toks = list(input_string)
         else:
