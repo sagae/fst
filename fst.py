@@ -47,6 +47,15 @@ class FST(object):
         self.transitions_by_isym[isym].add((state1, state2, isym, osym))
         self.transitions_by_osym[osym].add((state1, state2, isym, osym))
 
+    def add_transitions(self, state1, state2, symlist, weight=0):
+        """
+        Add a transition to the FST for each element of symlist,
+        where the input and output symbols are the same. 
+        If the transition already exists, add weight to the existing weight.
+        """
+        for sym in symlist:
+            self.add_transition(state1, state2, sym, sym, weight)
+
     def rm_transition(self, t):
         """
         Removes a transition from the FST.
