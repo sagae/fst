@@ -258,6 +258,18 @@ def compose(f, g):
                 a.append((q1, t2[1]))
 
         for t1 in f.transitions_by_state[q1]:
+            if t1[3] == EPS and ((t1[0], q2),
+                                  (t1[1], q2),
+                                  t1[2],
+                                  EPS) not in c.transitions:
+                c.add_transition((t1[0], q2),
+                                  (t1[1], q2),
+                                  t1[2],
+                                  EPS,
+                                  f.transitions[t1])
+                a.append((t1[1], q2))
+
+        for t1 in f.transitions_by_state[q1]:
             for t2 in g.transitions_by_state[q2]:
                 if t2[2] == t1[3] and ((t1[0], t2[0]), 
                                     (t1[1], t2[1]), 
